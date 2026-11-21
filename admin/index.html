@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Admin — Bave Digital Invitations</title>
+<style>
+  :root{--ink:#26231e;--soft:#6f675a;--line:#e3dccd;--bg:#f7f4ed;--card:#fff;--accent:#2f5d3a;--accent-d:#234a2d;--chip:#ece6d6}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  .wrap{max-width:1040px;margin:0 auto;padding:32px 20px 70px}
+  header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:26px}
+  .eyebrow{margin:0 0 4px;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--soft)}
+  h1{margin:0;font-size:26px}
+  .count{margin:4px 0 0;color:var(--soft);font-size:13.5px}
+  .btn{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;border:0;border-radius:999px;padding:11px 22px;font:inherit;font-size:14.5px;cursor:pointer}
+  .btn:hover{background:var(--accent-d)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 20px 16px;display:flex;flex-direction:column;gap:10px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .card h2{margin:0;font-size:18px}
+  .meta{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;margin:0;font-size:13.5px}
+  .meta dt{color:var(--soft)}
+  .meta dd{margin:0}
+  .chip{display:inline-block;background:var(--chip);border-radius:999px;padding:0 9px;font-size:12px;font-weight:600;letter-spacing:.04em;margin-right:4px}
+  .actions{display:flex;gap:8px;align-items:center;margin-top:auto;padding-top:6px}
+  .link{flex:1;min-width:0;color:var(--accent);font-size:13.5px;font-weight:600;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .link:hover{text-decoration:underline}
+  .copy{background:#fff;border:1px solid var(--line);border-radius:6px;padding:5px 10px;font:inherit;font-size:12.5px;color:var(--soft);cursor:pointer}
+  .copy:hover{border-color:var(--accent);color:var(--accent)}
+  .msg{background:#fff;border:1px dashed var(--line);border-radius:10px;padding:26px;text-align:center;color:var(--soft)}
+  .msg.err{border-color:#d9a29a;background:#fdf1ef;color:#8a3a2e;text-align:left}
+  .msg code,.how code{background:#efe9da;padding:1px 6px;border-radius:3px;font-size:12.5px}
+  details.how{margin-top:34px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:4px 20px 14px;font-size:13.5px}
+  details.how summary{cursor:pointer;font-weight:600;padding:12px 0}
+  pre{background:#2b2924;color:#efe8d7;border-radius:8px;padding:14px 16px;overflow:auto;font-size:12.5px;line-height:1.55}
+  .how li{margin-bottom:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <p class="eyebrow">Espace admin — Bave Digital Invitations</p>
+      <h1>Invitations clients</h1>
+      <p class="count" id="count"></p>
+    </div>
+    <a class="btn" href="../generator/">+ Nouvelle invitation</a>
+  </header>
+
+  <div id="list"></div>
+
+  <details class="how">
+    <summary>Ajouter un client à cette liste</summary>
+    <p>Après chaque génération, ajouter une entrée dans <code>admin/clients.js</code> (même commit que le dossier du client) :</p>
+<pre>{
+  slug: "aline-marc",            // nom du dossier dans clients/
+  name: "Aline &amp; Marc",          // nom affiché
+  theme: "ivory-botanical-gold", // ivory-gold | ivory-botanical-gold
+  languages: ["fr", "en"],       // ["fr"] | ["en"] | ["fr", "en"]
+  created: "2026-11-19",         // AAAA-MM-JJ
+},</pre>
+    <ul>
+      <li>Le lien public est construit automatiquement : <code>baseUrl</code> + <code>clients/&lt;slug&gt;/</code>.</li>
+      <li>Un thème inconnu de cette page s'affiche avec son identifiant tel quel.</li>
+    </ul>
+  </details>
+</div>
+
+<script src="clients.js"></script>
+<script>
+const THEME_NAMES = { "ivory-gold": "Ivory & Gold", "ivory-botanical-gold": "Ivory Botanical Gold" };
+const LANG_NAMES = { fr: "FR", en: "EN" };
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmtDate = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); if (!m) return iso || "—"; return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }); };
+const list = document.getElementById("list"), count = document.getElementById("count");
+
+(function render() {
+  const data = window.CLIENTS;
+  if (!data || !Array.isArray(data.clients)) {
+    list.innerHTML = `<div class="msg err"><b>Impossible de lire la liste des clients.</b><br>Le fichier <code>admin/clients.js</code> est absent ou invalide (vérifiez les virgules et les guillemets).</div>`;
+    return;
+  }
+  const base = (data.baseUrl || "").replace(/\/?$/, "/");
+  const clients = data.clients.slice().sort((a, b) => String(b.created).localeCompare(String(a.created)));
+  count.textContent = clients.length + (clients.length > 1 ? " invitations" : " invitation");
+  if (!clients.length) { list.innerHTML = '<div class="msg">Aucune invitation pour l\'instant. Cliquez sur « + Nouvelle invitation » pour en créer une.</div>'; return; }
+  list.className = "grid";
+  list.innerHTML = clients.map(c => {
+    const url = base + "clients/" + encodeURIComponent(c.slug) + "/";
+    const langs = (c.languages || []).map(l => `<span class="chip">${esc(LANG_NAMES[l] || String(l).toUpperCase())}</span>`).join("") || "—";
+    return `<article class="card">
+      <h2>${esc(c.name)}</h2>
+      <dl class="meta">
+        <dt>Thème</dt><dd>${esc(THEME_NAMES[c.theme] || c.theme || "—")}</dd>
+        <dt>Langues</dt><dd>${langs}</dd>
+        <dt>Créée le</dt><dd>${esc(fmtDate(c.created))}</dd>
+      </dl>
+      <div class="actions">
+        <a class="link" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(url)}">Ouvrir l'invitation ↗</a>
+        <button type="button" class="copy" data-url="${esc(url)}">Copier le lien</button>
+      </div>
+    </article>`;
+  }).join("");
+})();
+
+document.addEventListener("click", e => {
+  const b = e.target.closest(".copy"); if (!b) return;
+  const done = () => { const t = b.textContent; b.textContent = "Copié ✔"; setTimeout(() => (b.textContent = t), 1400); };
+  (navigator.clipboard ? navigator.clipboard.writeText(b.dataset.url) : Promise.reject()).then(done).catch(() => { const i = document.createElement("input"); i.value = b.dataset.url; document.body.append(i); i.select(); try { document.execCommand("copy"); done(); } catch (x) {} i.remove(); });
+});
+</script>
+</body>
+</html>
