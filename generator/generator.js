@@ -1,586 +1,435 @@
 /* ============================================================
-   GÉNÉRATEUR D'INVITATION
-   Construit un config.js (même structure que
-   template/config.sample.js) à partir du formulaire, puis
-   empaquette index.html + config.js + img/ + audio/ dans un
-   .zip téléchargé par le navigateur, sous un dossier déjà nommé
-   d'après le couple (prêt à glisser dans clients/). Tout se
-   passe côté client, rien n'est envoyé à un serveur.
+   GÉNÉRATEUR D'INVITATION — un seul formulaire pour tous les thèmes.
+   Les champs viennent de schema.js (miroir de
+   template/ivory-botanical-gold/data.js, le schéma maître).
+   • Ivory Botanical Gold : produit data.js + copie les fichiers du
+     thème, EMBARQUÉS dans bundled-templates.js (généré par
+     build-bundle.py à partir de template/ivory-botanical-gold/manifest.json)
+     → aucun fetch : fonctionne en double-clic (file://), sans serveur.
+   • Ivory & Gold (historique) : traduit les données vers l'ancien
+     config.js (valeurs de la langue par défaut seulement).
+   Tout se passe dans le navigateur ; rien n'est envoyé nulle part.
    ============================================================ */
 
-/* Copie figée de clients/_example/index.html (le squelette HTML
-   partagé par tous les clients). Embarquée ici en texte plutôt
-   que chargée par fetch() pour que le générateur fonctionne aussi
-   ouvert en double-clic (file://), sans serveur. Si le squelette
-   change dans clients/_example/index.html, reporter le changement
-   ici aussi. */
-const CLIENT_INDEX_HTML = `<!doctype html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Invitation</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&family=Jost:wght@300;400;500&family=Parisienne&display=swap">
-<link rel="stylesheet" href="../../template/css/base.css">
-<link rel="stylesheet" href="../../template/css/layout.css">
-<link rel="stylesheet" href="../../template/css/components.css">
-<link rel="stylesheet" href="../../template/css/theme-ivory-gold.css">
-</head>
-<body>
-
-<div class="demo-tag">Aperçu démo — Bave Digital Invitations</div>
-
-<div class="page">
-
-  <!-- ÉCRAN 1 — ENVELOPPE -->
-  <section class="envelope-screen" id="envelope-screen">
-    <div class="petals" id="petals"></div>
-    <div class="envelope-card">
-      <div class="branch branch--tl">
-        <svg viewBox="0 0 60 110" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round">
-          <path d="M6 108 C 10 84, 4 64, 14 46 C 22 32, 16 18, 26 4"/>
-          <circle cx="14" cy="46" r="3.2" fill="currentColor" stroke="none"/>
-          <circle cx="20" cy="34" r="2.4" fill="currentColor" stroke="none"/>
-          <circle cx="10" cy="60" r="2.6" fill="currentColor" stroke="none"/>
-          <circle cx="24" cy="20" r="2.2" fill="currentColor" stroke="none"/>
-          <circle cx="26" cy="4" r="2.8" fill="currentColor" stroke="none"/>
-          <path d="M14 46 C 8 44, 4 48, 2 52" stroke-width="1"/>
-          <path d="M10 60 C 4 58, 0 62, -2 66" stroke-width="1"/>
-        </svg>
-      </div>
-      <div class="branch branch--br">
-        <svg viewBox="0 0 60 110" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round">
-          <path d="M54 106 C 48 82, 54 62, 44 44 C 36 30, 42 16, 32 2"/>
-          <circle cx="44" cy="44" r="3" fill="currentColor" stroke="none"/>
-          <circle cx="38" cy="32" r="2.3" fill="currentColor" stroke="none"/>
-          <circle cx="48" cy="58" r="2.5" fill="currentColor" stroke="none"/>
-          <circle cx="34" cy="18" r="2.1" fill="currentColor" stroke="none"/>
-          <circle cx="32" cy="2" r="2.6" fill="currentColor" stroke="none"/>
-          <path d="M44 44 C 50 42, 54 46, 56 50" stroke-width="1"/>
-          <path d="M48 58 C 54 56, 58 60, 60 64" stroke-width="1"/>
-        </svg>
-      </div>
-      <div class="heart-badge">♥</div>
-      <p class="names" id="env-names"></p>
-      <div class="rule"><span class="script" style="font-size:22px;line-height:1">&amp;</span></div>
-      <p class="date-line" id="env-date"></p>
-      <p class="invite-line">invitent cordialement</p>
-      <button class="btn-open" id="btn-open">Ouvrir</button>
-    </div>
-  </section>
-
-  <!-- CONTENU PRINCIPAL -->
-  <div id="invitation">
-
-    <!-- 2. Présentation du couple -->
-    <section>
-      <p class="eyebrow">Mariage de</p>
-      <h1 class="title-names" id="couple-title"></h1>
-      <div class="polaroid-wrap">
-        <div class="polaroid">
-          <div class="branch branch--side" style="color:var(--gold-deep)">
-            <svg viewBox="0 0 40 120" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round">
-              <path d="M8 118 C 12 94, 6 72, 16 52 C 24 36, 18 20, 26 2"/>
-              <circle cx="16" cy="52" r="2.8" fill="currentColor" stroke="none"/>
-              <circle cx="21" cy="38" r="2.1" fill="currentColor" stroke="none"/>
-              <circle cx="11" cy="68" r="2.3" fill="currentColor" stroke="none"/>
-              <circle cx="24" cy="22" r="1.9" fill="currentColor" stroke="none"/>
-              <circle cx="26" cy="2" r="2.4" fill="currentColor" stroke="none"/>
-            </svg>
-          </div>
-          <div class="photo-placeholder"><img id="main-photo" alt="" src=""></div>
-          <div class="wax-seal"><img src="../../template/img/wax-seal.png" alt=""></div>
-          <div class="branch branch--corner" aria-hidden="true">
-            <svg viewBox="0 0 118 192" fill="none" stroke-linecap="round">
-              <path d="M18 190 C 14 150, 30 128, 24 98 C 20 76, 36 60, 30 36 C 26 18, 40 8, 46 2" stroke="#8c6a3f" stroke-width="2"/>
-              <path d="M24 98 C 10 90, 2 96, -6 88" stroke="#8c6a3f" stroke-width="1.3"/>
-              <path d="M30 36 C 42 30, 48 34, 58 26" stroke="#8c6a3f" stroke-width="1.3"/>
-              <path d="M20 76 C 8 72, 4 78, -4 76" stroke="#8c6a3f" stroke-width="1.1"/>
-              <g fill="#cdbfa5" stroke="#8c6a3f" stroke-width=".6">
-                <ellipse cx="46" cy="2" rx="6" ry="9" transform="rotate(-10 46 2)"/>
-                <ellipse cx="58" cy="10" rx="5" ry="8" transform="rotate(25 58 10)"/>
-                <ellipse cx="38" cy="14" rx="5" ry="7" transform="rotate(-40 38 14)"/>
-              </g>
-              <g fill="#b08d57" stroke="#8c6a3f" stroke-width=".6">
-                <ellipse cx="58" cy="26" rx="5" ry="7" transform="rotate(18 58 26)"/>
-                <ellipse cx="68" cy="22" rx="4" ry="6" transform="rotate(50 68 22)"/>
-                <ellipse cx="30" cy="36" rx="4.5" ry="6.5" transform="rotate(-20 30 36)"/>
-              </g>
-              <g fill="#e3d7bd" stroke="#8c6a3f" stroke-width=".6">
-                <ellipse cx="-6" cy="88" rx="5" ry="7" transform="rotate(-25 -6 88)"/>
-                <ellipse cx="-14" cy="94" rx="4" ry="6" transform="rotate(10 -14 94)"/>
-                <ellipse cx="-4" cy="76" rx="4" ry="6" transform="rotate(-20 -4 76)"/>
-                <ellipse cx="10" cy="72" rx="4" ry="6" transform="rotate(30 10 72)"/>
-              </g>
-              <circle cx="46" cy="2" r="2" fill="#8c6a3f"/>
-              <circle cx="58" cy="26" r="1.6" fill="#8c6a3f"/>
-              <circle cx="-6" cy="88" r="1.6" fill="#8c6a3f"/>
-            </svg>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 3. Annonce officielle des familles -->
-    <section class="paper-card">
-      <div class="branch branch--side" aria-hidden="true">
-        <svg viewBox="0 0 40 120" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round">
-          <path d="M8 118 C 14 96, 8 74, 18 54 C 26 38, 20 22, 28 2"/>
-          <ellipse cx="17" cy="52" rx="5" ry="2.3" transform="rotate(-30 17 52)" fill="currentColor" stroke="none"/>
-          <ellipse cx="22" cy="36" rx="4.4" ry="2" transform="rotate(25 22 36)" fill="currentColor" stroke="none"/>
-          <ellipse cx="11" cy="66" rx="4.6" ry="2.1" transform="rotate(-40 11 66)" fill="currentColor" stroke="none"/>
-          <ellipse cx="25" cy="18" rx="4" ry="1.8" transform="rotate(20 25 18)" fill="currentColor" stroke="none"/>
-        </svg>
-      </div>
-      <div class="families" id="families"></div>
-      <p class="announce-text">Nous avons la joie de vous annoncer<br>le mariage de nos enfants</p>
-      <p class="couple-names-block">
-        <span id="full-name-1"></span>
-        <span class="and script">&amp;</span>
-        <span id="full-name-2"></span>
-      </p>
-    </section>
-
-    <!-- 4. Cérémonie -->
-    <section class="when-card">
-      <p class="label">La cérémonie aura lieu à</p>
-      <p class="time" id="ceremony-time"></p>
-      <p class="date-row" id="ceremony-date"></p>
-    </section>
-
-    <!-- 5. Galerie -->
-    <section>
-      <h2 class="eyebrow gallery-title" id="gallery-title">Galerie photo</h2>
-      <div class="coverflow" id="coverflow">
-        <div class="coverflow-track" id="coverflow-track"></div>
-        <button class="cf-arrow cf-prev" id="cf-prev" aria-label="Photo précédente">‹</button>
-        <button class="cf-arrow cf-next" id="cf-next" aria-label="Photo suivante">›</button>
-      </div>
-      <p class="gallery-counter" id="gallery-counter"></p>
-    </section>
-
-    <!-- 6. Réception -->
-    <section class="when-card">
-      <p class="label">La réception aura lieu à</p>
-      <p class="time" id="reception-time"></p>
-      <p class="date-row" id="reception-date"></p>
-    </section>
-
-    <!-- 7. Calendrier -->
-    <section class="calendar-card">
-      <p class="month" id="cal-month"></p>
-      <div class="cal-grid" id="cal-grid"></div>
-      <a class="add-cal" id="add-cal-link" target="_blank" rel="noopener">Ajouter au calendrier</a>
-    </section>
-
-    <!-- 8. Lieu + carte -->
-    <section class="paper-card" style="text-align:left">
-      <p class="eyebrow" style="text-align:left">Lieu de la réception</p>
-      <p class="venue-name" id="venue-name"></p>
-      <p class="venue-addr" id="venue-addr"></p>
-      <a class="map-btn" id="map-link" target="_blank" rel="noopener">📍 Ouvrir dans Maps</a>
-    </section>
-
-    <!-- 9. Dress code -->
-    <section>
-      <h2 class="eyebrow dress-title">Dress code</h2>
-      <p class="dress-sub" id="dress-sub"></p>
-      <div class="swatches" id="swatches"></div>
-    </section>
-
-    <!-- 9bis. Livre d'or -->
-    <section class="paper-card" style="text-align:left">
-      <p class="eyebrow" style="text-align:center">Livre d'or</p>
-      <h2 class="serif guestbook-title">Laissez un mot aux mariés</h2>
-      <form id="guestbook-form" class="guestbook-form">
-        <input type="text" id="gb-name" placeholder="Votre nom" maxlength="60" required>
-        <textarea id="gb-message" placeholder="Votre message pour les mariés..." maxlength="400" rows="3" required></textarea>
-        <button type="submit" class="gb-submit">Envoyer mes vœux</button>
-      </form>
-      <p class="gb-note" id="gb-note"></p>
-      <div class="guestbook-list" id="guestbook-list"></div>
-      <p class="guestbook-empty" id="guestbook-empty">Soyez le premier à laisser un mot !</p>
-    </section>
-
-    <!-- 10. Clôture -->
-    <section class="closing" style="position:relative">
-      <div class="branch branch--closing" style="color:var(--gold)" aria-hidden="true">
-        <svg viewBox="0 0 60 80" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round">
-          <path d="M30 78 L30 20"/>
-          <path d="M30 40 C 24 36, 16 38, 10 32" />
-          <path d="M30 40 C 36 36, 44 38, 50 32" />
-          <circle cx="30" cy="16" r="3" fill="currentColor" stroke="none"/>
-          <circle cx="22" cy="24" r="2" fill="currentColor" stroke="none"/>
-          <circle cx="38" cy="24" r="2" fill="currentColor" stroke="none"/>
-        </svg>
-      </div>
-      <p id="closing-msg" style="margin-top:34px"></p>
-      <p class="brand-tag">Créé par Bave Pictures</p>
-    </section>
-
-  </div>
-</div>
-
-<canvas id="confetti-canvas" style="position:fixed;inset:0;pointer-events:none;z-index:40;"></canvas>
-<audio id="bg-music" loop></audio>
-<button class="music-btn" id="music-btn" aria-pressed="false" aria-label="Jouer la musique">▶</button>
-
-<script src="config.js"></script>
-<script src="../../template/js/render.js"></script>
-<script src="../../template/js/interactions.js"></script>
-</body>
-</html>
-`;
-
-const JOURS = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
-const MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
-
-const DEFAULT_DRESS_COLORS = ["#e8c468", "#d98b3f", "#e3a9a0", "#2f4a3a", "#7f9a7d", "#8ea3c2"];
-const DEFAULT_MESSAGE_CLOTURE = "Votre présence serait le plus beau des cadeaux !";
-
-function computeDateAffichee(isoDate) {
-  const [y, m, d] = isoDate.split("-").map(Number);
+/* ---------- utilitaires ---------- */
+const DAYS = {
+  fr: ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"],
+  en: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+};
+const MONTHS = {
+  fr: ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"],
+  en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+};
+function dateParts(iso, lang) {
+  const [y, m, d] = iso.split("-").map(Number);
   const date = new Date(y, m - 1, d);
-  return {
-    jourSemaine: JOURS[date.getDay()],
-    jour: String(d).padStart(2, "0"),
-    mois: MOIS[m - 1],
-    annee: String(y),
-  };
+  return { weekday: DAYS[lang][date.getDay()], day: String(d).padStart(2, "0"), month: MONTHS[lang][m - 1], year: String(y) };
+}
+// "DIMANCHE <b>06</b> DÉCEMBRE 2026" — composed from the date picker, never typed by hand
+function dateLabelHtml(iso, lang) {
+  const p = dateParts(iso, lang);
+  return `${p.weekday.toUpperCase()} <b>${p.day}</b> ${p.month.toUpperCase()} ${p.year}`;
+}
+const extOf = (name, fb) => { const m = /\.([a-zA-Z0-9]+)$/.exec(name || ""); return m ? m[1].toLowerCase() : fb; };
+const slugify = t => (t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "invitation";
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const nlToBr = s => esc(s).replace(/\r?\n/g, "<br>");
+const stripHtml = s => String(s).replace(/<br\s*\/?>/gi, " ").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+function setPath(obj, path, val) {
+  const keys = path.split("."); let o = obj;
+  keys.slice(0, -1).forEach((k, i) => { if (o[k] == null) o[k] = /^\d+$/.test(keys[i + 1]) ? [] : {}; o = o[k]; });
+  o[keys[keys.length - 1]] = val;
+}
+const $ = (s, r = document) => r.querySelector(s);
+function h(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const k in (attrs || {})) { if (k === "class") e.className = attrs[k]; else if (k === "html") e.innerHTML = attrs[k]; else e.setAttribute(k, attrs[k]); }
+  kids.flat().forEach(k => k != null && e.append(k));
+  return e;
 }
 
-function extOf(filename, fallback) {
-  const match = /\.([a-zA-Z0-9]+)$/.exec(filename || "");
-  return match ? match[1].toLowerCase() : fallback;
+/* ---------- état : thème & langues ---------- */
+const form = $("#generator-form");
+const REG = [];                                  // { f, el, read() }
+let theme = THEMES[0].id;
+const isLegacy = () => THEMES.find(t => t.id === theme).legacy;
+function enabledLangs() { const r = REG.find(x => x.f.type === "languages"); return r ? r.read() : ["fr"]; }
+function defaultLang() { const r = REG.find(x => x.f.path === "settings.defaultLang"); return r ? r.read() : "fr"; }
+const reqLangs = () => (isLegacy() ? [defaultLang()] : enabledLangs());
+
+/* ---------- constructeurs de champs ---------- */
+function labelEl(f) { return h("span", { class: "lbl", html: esc(f.label) + (f.req ? ' <span class="req">*</span>' : "") }); }
+function wrap(f, ...inner) {
+  const w = h("div", { class: "field f-" + f.type + (f.old === false ? " f-noold" : ""), "data-field": f.path }, ...inner);
+  if (f.hint) w.append(h("span", { class: "hint", html: esc(f.hint) }));
+  return w;
+}
+function input(f, type, extra) {
+  const i = h("input", Object.assign({ type, "data-path": f.path }, f.placeholder && typeof f.placeholder === "string" ? { placeholder: f.placeholder } : {}, extra || {}));
+  if (f.default != null && type !== "checkbox") i.value = f.default;
+  return i;
 }
 
-function slugify(text) {
-  return (text || "")
-    .toLowerCase()
-    .normalize("NFD").replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "invitation";
-}
+const BUILDERS = {
+  text(f) { const i = input(f, "text"); return { el: wrap(f, h("label", {}, labelEl(f), i)), read: () => i.value.trim() }; },
+  date(f) { const i = input(f, "date"); return { el: wrap(f, h("label", {}, labelEl(f), i)), read: () => i.value, input: i }; },
+  time(f) { const i = input(f, "time"); return { el: wrap(f, h("label", {}, labelEl(f), i)), read: () => i.value }; },
+  number(f) { const i = input(f, "number", { min: f.min, max: f.max }); return { el: wrap(f, h("label", {}, labelEl(f), i)), read: () => Number(i.value) || f.default }; },
+  select(f) {
+    const s = h("select", { "data-path": f.path }, f.options.map(([v, t]) => h("option", { value: v }, t))); s.value = f.default;
+    return { el: wrap(f, h("label", {}, labelEl(f), s)), read: () => s.value, input: s };
+  },
+  check(f) {
+    const i = input(f, "checkbox"); i.checked = !!f.default;
+    return { el: wrap(f, h("label", { class: "check" }, i, h("span", { html: esc(f.label) }))), read: () => i.checked, input: i };
+  },
+  languages(f) {
+    const fr = h("input", { type: "checkbox", "data-path": "settings.languages", "data-lang": "fr" }); fr.checked = true;
+    const en = h("input", { type: "checkbox", "data-path": "settings.languages", "data-lang": "en" }); en.checked = true;
+    return { el: wrap(f, h("div", { class: "lbl" }, f.label), h("div", { class: "langs" }, h("label", { class: "check" }, fr, h("span", {}, "Français")), h("label", { class: "check" }, en, h("span", {}, "English")))),
+      read: () => [fr.checked && "fr", en.checked && "en"].filter(Boolean), inputs: [fr, en] };
+  },
+  monogram(f) {
+    const a = h("input", { type: "text", maxlength: 2, class: "mono", "data-path": "couple.monogram.0" }), b = h("input", { type: "text", maxlength: 2, class: "mono", "data-path": "couple.monogram.1" });
+    return { el: wrap(f, h("div", { class: "lbl" }, f.label), h("div", { class: "mono-row" }, a, h("span", {}, "&"), b)), read: () => (a.value.trim() && b.value.trim() ? [a.value.trim(), b.value.trim()] : null) };
+  },
+  datelabel(f) {
+    const p = h("div", { class: "date-preview" }, "—");
+    return { el: wrap(f, h("div", { class: "lbl" }, f.label + " (généré automatiquement)"), p), read: () => null, preview: p };
+  },
+  bi(f, area) {
+    const mk = lang => {
+      const ph = f.placeholder && typeof f.placeholder === "object" ? f.placeholder[lang] : "";
+      const i = area ? h("textarea", { rows: 2, "data-path": f.path, "data-lang": lang, placeholder: ph || "" }) : h("input", { type: "text", "data-path": f.path, "data-lang": lang, placeholder: ph || "" });
+      if (f.default) i.value = f.default[lang] || "";
+      return i;
+    };
+    const fr = mk("fr"), en = mk("en");
+    const row = h("div", { class: "bi-row" },
+      h("label", { class: "col-fr" }, h("span", { class: "lang-tag" }, "FR"), fr),
+      h("label", { class: "col-en" + (f.enOld === false ? " en-noold" : "") }, h("span", { class: "lang-tag" }, "EN"), en));
+    return { el: wrap(f, h("div", { class: "lbl-row" }, labelEl(f)), row), read: () => ({ fr: fr.value.trim(), en: en.value.trim() }), inputs: [fr, en] };
+  },
+  bia(f) { return BUILDERS.bi(f, true); },
+  file(f) {
+    const i = h("input", { type: "file", accept: f.accept, "data-path": f.path });
+    const img = h("img", { class: "thumb", hidden: "" });
+    i.addEventListener("change", () => { const file = i.files[0]; if (file && file.type.startsWith("image/")) { img.src = URL.createObjectURL(file); img.hidden = false; } else img.hidden = true; });
+    return { el: wrap(f, h("label", {}, labelEl(f), i, img)), read: () => i.files[0] || null, input: i };
+  },
+  colors(f) {
+    const box = h("div", { class: "swatch-row" });
+    const add = hex => {
+      const item = h("div", { class: "swatch-item" }, h("input", { type: "color", class: "dress-color", value: hex || "#b08d57", "data-path": "dressCode.colors" }), h("button", { type: "button", class: "btn-remove-color", "aria-label": "Retirer cette couleur" }, "×"));
+      item.querySelector("button").addEventListener("click", () => { item.remove(); refresh(); });
+      box.append(item); refresh();
+    };
+    const addBtn = h("button", { type: "button", class: "btn-secondary" }, "+ Ajouter une couleur");
+    function refresh() { const n = box.children.length; box.querySelectorAll(".btn-remove-color").forEach(b => (b.disabled = n <= MIN_COLORS)); addBtn.disabled = n >= MAX_COLORS; }
+    addBtn.addEventListener("click", () => add());
+    ["#1d2417", "#b6c58f", "#fffbe3", "#ffffff"].forEach(add);
+    return { el: wrap(f, h("div", { class: "lbl" }, labelEl(f)), box, addBtn, h("span", { class: "hint" }, `${MIN_COLORS} à ${MAX_COLORS} couleurs.`)), read: () => [...box.querySelectorAll(".dress-color")].map(c => c.value) };
+  },
+  families(f) {
+    const box = h("div", { class: "families-list" });
+    const add = (t) => {
+      const fr = h("input", { type: "text", value: (t && t.fr) || "Mr / Mme", "data-lang": "fr", "data-path": "families.items.title" });
+      const en = h("input", { type: "text", value: (t && t.en) || "Mr. & Mrs.", "data-lang": "en", "data-path": "families.items.title" });
+      const names = h("input", { type: "text", "data-path": "families.items.names", placeholder: "Prénom NOM & Prénom NOM" });
+      const rm = h("button", { type: "button", class: "btn-remove" }, "Retirer");
+      const item = h("div", { class: "famille-block" },
+        h("div", { class: "bi-row" }, h("label", { class: "col-fr" }, h("span", { class: "lang-tag" }, "FR"), fr), h("label", { class: "col-en" }, h("span", { class: "lang-tag" }, "EN"), en)),
+        h("label", {}, h("span", { class: "lbl", html: 'Parents <span class="req">*</span>' }), names), rm);
+      item._r = { fr, en, names };
+      rm.addEventListener("click", () => { item.remove(); refresh(); });
+      box.append(item); refresh();
+    };
+    const addBtn = h("button", { type: "button", class: "btn-secondary" }, "+ Ajouter une famille");
+    function refresh() { const n = box.children.length; box.querySelectorAll(".btn-remove").forEach(b => (b.disabled = n <= 1)); addBtn.disabled = n >= MAX_FAMILIES; }
+    addBtn.addEventListener("click", () => add());
+    add(); add();
+    return { el: wrap(f, h("div", { class: "lbl" }, labelEl(f)), box, addBtn), read: () => [...box.children].map(c => ({ title: { fr: c._r.fr.value.trim(), en: c._r.en.value.trim() }, names: c._r.names.value.trim() })) };
+  },
+  photos(f) {
+    const box = h("div", { class: "photo-rows" });
+    const addBtn = h("button", { type: "button", class: "btn-secondary" }, "+ Ajouter une photo");
+    function refresh() { const n = box.children.length; box.querySelectorAll(".btn-remove").forEach(b => (b.disabled = n <= MIN_GALLERY)); addBtn.disabled = n >= MAX_GALLERY; [...box.children].forEach((c, i) => (c.querySelector(".num").textContent = i + 1)); }
+    const add = () => {
+      const file = h("input", { type: "file", accept: "image/*", "data-path": "gallery.photos.file" });
+      const img = h("img", { class: "thumb", hidden: "" });
+      file.addEventListener("change", () => { const x = file.files[0]; if (x) { img.src = URL.createObjectURL(x); img.hidden = false; } else img.hidden = true; });
+      const fr = h("input", { type: "text", "data-lang": "fr", "data-path": "gallery.photos.caption", placeholder: "Légende (facultatif)" });
+      const en = h("input", { type: "text", "data-lang": "en", "data-path": "gallery.photos.caption", placeholder: "Caption (optional)" });
+      const rm = h("button", { type: "button", class: "btn-remove" }, "Retirer");
+      const row = h("div", { class: "photo-row" }, h("span", { class: "num" }, "1"), h("div", { class: "pr-main" }, file, img),
+        h("div", { class: "pr-caps" }, h("label", { class: "col-fr" }, h("span", { class: "lang-tag" }, "FR"), fr), h("label", { class: "col-en" }, h("span", { class: "lang-tag" }, "EN"), en)), rm);
+      row._r = { file, fr, en };
+      rm.addEventListener("click", () => { row.remove(); refresh(); });
+      box.append(row); refresh();
+    };
+    addBtn.addEventListener("click", () => add());
+    for (let i = 0; i < MIN_GALLERY; i++) add();
+    return { el: wrap(f, h("div", { class: "lbl" }, labelEl(f)), box, addBtn, h("span", { class: "hint", html: `<b>Minimum ${MIN_GALLERY} photos</b> (maximum ${MAX_GALLERY}) : la galerie tourne en boucle, il en faut assez pour qu'elle reste belle. Carrées ou paysage, ≈1100 px.` })),
+      read: () => [...box.children].map(r => ({ file: r._r.file.files[0] || null, caption: { fr: r._r.fr.value.trim(), en: r._r.en.value.trim() } })) };
+  },
+};
 
-/* ---------- Familles : liste dynamique ---------- */
-const famillesList = document.getElementById("familles-list");
-let familleCount = 0;
-
-function addFamilleBlock(titre, parents) {
-  familleCount++;
-  const id = familleCount;
-  const block = document.createElement("div");
-  block.className = "famille-block";
-  block.dataset.familleId = String(id);
-  block.innerHTML = `
-    <label>Titre <span class="req">*</span>
-      <input type="text" class="famille-titre" required>
-    </label>
-    <label>Parents <span class="req">*</span>
-      <input type="text" class="famille-parents" required>
-    </label>
-    <button type="button" class="btn-remove">Retirer</button>
-  `;
-  block.querySelector(".famille-titre").value = titre || "Mr et Mme";
-  block.querySelector(".famille-parents").value = parents || "";
-  block.querySelector(".btn-remove").addEventListener("click", () => {
-    block.remove();
-    updateRemoveButtons();
-  });
-  famillesList.appendChild(block);
-  updateRemoveButtons();
-}
-
-function updateRemoveButtons() {
-  const blocks = famillesList.querySelectorAll(".famille-block");
-  blocks.forEach(b => {
-    b.querySelector(".btn-remove").disabled = blocks.length <= 1;
-  });
-}
-
-document.getElementById("add-famille").addEventListener("click", () => addFamilleBlock());
-addFamilleBlock("Mr et Mme", "");
-addFamilleBlock("Mr et Mme", "");
-
-/* ---------- Galerie photo : 6 champs additionnels (+ la photo principale, statique) ---------- */
-const galleryContainer = document.getElementById("gallery-photos");
-for (let i = 1; i <= 6; i++) {
-  const wrap = document.createElement("label");
-  wrap.innerHTML = `
-    Photo galerie ${i} <span class="req">*</span>
-    <input type="file" id="photoGalerie${i}" accept="image/*" required>
-    <img class="thumb" id="preview-photoGalerie${i}" hidden>
-  `;
-  galleryContainer.appendChild(wrap);
-}
-
-function wireThumbnailPreview(inputId, imgId) {
-  const input = document.getElementById(inputId);
-  const img = document.getElementById(imgId);
-  input.addEventListener("change", () => {
-    const file = input.files[0];
-    if (!file) { img.hidden = true; return; }
-    img.src = URL.createObjectURL(file);
-    img.hidden = false;
-  });
-}
-wireThumbnailPreview("photoPrincipale", "preview-photoPrincipale");
-for (let i = 1; i <= 6; i++) {
-  wireThumbnailPreview(`photoGalerie${i}`, `preview-photoGalerie${i}`);
-}
-
-/* ---------- Dress code : liste dynamique de couleurs ---------- */
-const dressColorsContainer = document.getElementById("dress-colors");
-
-function addColorBlock(hex) {
-  const wrap = document.createElement("div");
-  wrap.className = "swatch-item";
-  wrap.innerHTML = `
-    <input type="color" class="dress-color" value="${hex || "#b08d57"}">
-    <button type="button" class="btn-remove-color" aria-label="Retirer cette couleur">×</button>
-  `;
-  wrap.querySelector(".btn-remove-color").addEventListener("click", () => {
-    wrap.remove();
-    updateColorRemoveButtons();
-  });
-  dressColorsContainer.appendChild(wrap);
-  updateColorRemoveButtons();
-}
-
-function updateColorRemoveButtons() {
-  const items = dressColorsContainer.querySelectorAll(".swatch-item");
-  items.forEach(item => {
-    item.querySelector(".btn-remove-color").disabled = items.length <= 1;
-  });
-}
-
-document.getElementById("add-color").addEventListener("click", () => addColorBlock());
-DEFAULT_DRESS_COLORS.forEach(hex => addColorBlock(hex));
-
-/* ---------- Message de clôture : valeur par défaut ---------- */
-document.getElementById("messageCloture").value = DEFAULT_MESSAGE_CLOTURE;
-
-/* ---------- Aperçu de la date affichée ---------- */
-const dateInput = document.getElementById("dateMariage");
-const datePreview = document.getElementById("date-preview");
-dateInput.addEventListener("change", () => {
-  if (!dateInput.value) { datePreview.textContent = ""; return; }
-  const d = computeDateAffichee(dateInput.value);
-  datePreview.textContent = `Aperçu : ${d.jourSemaine} ${d.jour} ${d.mois} ${d.annee}`;
+/* ---------- construction du formulaire ---------- */
+const themeBox = $("#theme-cards");
+THEMES.forEach(t => {
+  const id = "theme-" + t.id;
+  const r = h("input", { type: "radio", name: "theme", id, value: t.id }); if (t.id === theme) r.checked = true;
+  r.addEventListener("change", () => { theme = t.id; applyThemeUI(); });
+  themeBox.append(h("label", { class: "theme-card", for: id }, r, h("span", { class: "tc-name" }, t.name), h("span", { class: "tc-desc" }, t.desc), t.legacy ? h("span", { class: "tc-tag" }, "ancien moteur") : h("span", { class: "tc-tag ok" }, "schéma complet")));
 });
 
-/* ---------- Validation ---------- */
-function clearInvalidMarks(form) {
-  form.querySelectorAll(".invalid").forEach(el => el.classList.remove("invalid"));
+const mount = $("#form-sections");
+SECTIONS.forEach(sec => {
+  const fs = h("fieldset", { id: "sec-" + sec.id }, h("legend", {}, sec.title));
+  sec.fields.forEach(f => {
+    const b = f.type === "bia" ? BUILDERS.bia(f) : BUILDERS[f.type](f);
+    b.f = f; REG.push(b); fs.append(b.el);
+  });
+  if (sec.adv) { const d = h("details", { class: "adv" }, h("summary", {}, sec.title)); [...fs.children].slice(1).forEach(c => d.append(c)); mount.append(d); }
+  else mount.append(fs);
+});
+const byPath = p => REG.find(x => x.f.path === p);
+
+/* date → aperçu du libellé (FR / EN) */
+const dateReg = byPath("wedding.date"), dateLblReg = byPath("wedding.dateLabel");
+function updateDatePreview() {
+  const v = dateReg.read();
+  dateLblReg.preview.innerHTML = v ? `<span class="lang-tag">FR</span> ${dateLabelHtml(v, "fr")}<br><span class="lang-tag">EN</span> ${dateLabelHtml(v, "en")}` : "—";
 }
+dateReg.input.addEventListener("change", updateDatePreview); dateReg.input.addEventListener("input", updateDatePreview);
 
-function validate(form) {
-  const errors = [];
-  let firstInvalid = null;
+/* langues → colonnes visibles + langue par défaut */
+const langReg = byPath("settings.languages"), defLangReg = byPath("settings.defaultLang");
+function applyLangUI() {
+  const langs = enabledLangs();
+  form.classList.toggle("no-fr", !langs.includes("fr"));
+  form.classList.toggle("no-en", !langs.includes("en"));
+  [...defLangReg.input.options].forEach(o => { o.disabled = !langs.includes(o.value); });
+  if (!langs.includes(defLangReg.input.value) && langs.length) defLangReg.input.value = langs[0];
+}
+langReg.inputs.forEach(i => i.addEventListener("change", applyLangUI));
 
-  function markInvalid(el, message) {
-    el.classList.add("invalid");
-    if (!firstInvalid) firstInvalid = el;
-    errors.push(message);
-  }
+/* thème → grisés / avertissement */
+function applyThemeUI() {
+  form.dataset.theme = theme;
+  $("#legacy-note").hidden = !isLegacy();
+  form.classList.toggle("legacy", isLegacy());
+  applyLangUI();
+}
+applyThemeUI();
 
-  form.querySelectorAll("input[required], textarea[required]").forEach(el => {
-    if (el.type === "file") {
-      if (!el.files || !el.files.length) {
-        markInvalid(el, `Champ manquant : ${fieldLabel(el)}`);
-      }
-    } else if (!el.value.trim()) {
-      markInvalid(el, `Champ manquant : ${fieldLabel(el)}`);
+/* ---------- validation ---------- */
+function clearMarks() { form.querySelectorAll(".invalid").forEach(e => e.classList.remove("invalid")); }
+function validate() {
+  const errors = []; let first = null;
+  const bad = (el, msg) => { (el.classList || { add() {} }).add("invalid"); if (!first && el.focus) first = el; errors.push(msg); };
+  const legacy = isLegacy(), langs = enabledLangs(), req = reqLangs();
+  const gbOn = byPath("guestbook.enabled").read(), creditOn = byPath("credit.enabled").read();
+  if (!langs.length) bad(langReg.el, "Choisissez au moins une langue.");
+  if (!isLegacy() && !langs.includes(defaultLang())) bad(defLangReg.el, "La langue par défaut doit faire partie des langues proposées.");
+
+  REG.forEach(r => {
+    const f = r.f; if (!f.req && f.type !== "photos") return;
+    if (legacy && !f.old) return;                                         // champ ignoré par l'ancien thème
+    if (f.path.startsWith("guestbook.") && f.path !== "guestbook.enabled" && !gbOn) return;
+    if (f.path === "credit.html" && !creditOn) return;
+    const label = f.label.replace(/\(.*\)/, "").trim();
+    if (["text", "date", "time"].includes(f.type)) { if (!r.read()) bad(r.el, `Champ manquant : ${label}`); }
+    else if (f.type === "bi" || f.type === "bia") req.forEach((l, i) => { if (!r.read()[l]) bad(r.inputs[l === "fr" ? 0 : 1], `Champ manquant : ${label} (${l.toUpperCase()})`); });
+    else if (f.path === "hero.photo") { if (!r.read()) bad(r.el, "Photo principale manquante."); }
+    else if (f.type === "families") {
+      const items = r.read(); if (!items.length) bad(r.el, "Ajoutez au moins une famille.");
+      items.forEach((it, i) => { if (!it.names) bad(r.el, `Famille ${i + 1} : parents manquants.`); req.forEach(l => { if (!it.title[l]) bad(r.el, `Famille ${i + 1} : titre ${l.toUpperCase()} manquant.`); }); });
+    }
+    else if (f.type === "colors") { if (r.read().length < MIN_COLORS) bad(r.el, `Dress code : au moins ${MIN_COLORS} couleurs.`); }
+    else if (f.type === "photos") {
+      const rows = r.read(); const missing = rows.filter(x => !x.file).length;
+      if (rows.length < MIN_GALLERY) bad(r.el, `Galerie : au moins ${MIN_GALLERY} photos (il y en a ${rows.length}).`);
+      else if (missing) bad(r.el, `Galerie : ${missing} photo(s) sans fichier — il en faut ${MIN_GALLERY} minimum.`);
     }
   });
-
-  if (!famillesList.querySelector(".famille-block")) {
-    errors.push("Ajoutez au moins une famille.");
+  const musicOn = byPath("settings.music.enabled").read(), music = REG.find(x => x.f.musicFile);
+  if (legacy) {
+    if (!music.read()) bad(music.el, "Musique : fichier audio obligatoire avec Ivory & Gold.");
+    if (!byPath("settings.music.title").read()) bad(byPath("settings.music.title").el, "Musique : titre du morceau obligatoire avec Ivory & Gold.");
   }
-
-  if (!dressColorsContainer.querySelector(".dress-color")) {
-    errors.push("Ajoutez au moins une couleur de dress code.");
-  }
-
-  return { errors, firstInvalid };
+  return { errors, first };
+}
+function showErrors(errors, first) {
+  const box = $("#error-summary");
+  if (!errors.length) { box.hidden = true; box.innerHTML = ""; return; }
+  box.hidden = false;
+  box.innerHTML = `<strong>${errors.length} point(s) à corriger :</strong><ul>${[...new Set(errors)].map(e => `<li>${esc(e)}</li>`).join("")}</ul>`;
+  box.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function fieldLabel(el) {
-  const label = el.closest("label");
-  if (label) {
-    return label.textContent.replace("*", "").trim().split("\n")[0].trim();
-  }
-  return el.id;
+/* ---------- données → objet INVITATION (le schéma de data.js) ---------- */
+function buildInvitation() {
+  const inv = { schema: "ibg-1" };
+  const langs = enabledLangs(), gbOn = byPath("guestbook.enabled").read();
+  const files = { hero: null, gallery: [], music: null };
+  REG.forEach(r => {
+    const f = r.f; let v;
+    switch (f.type) {
+      case "datelabel": { const iso = dateReg.read(); v = {}; langs.forEach(l => (v[l] = dateLabelHtml(iso, l))); break; }
+      case "languages": v = r.read(); break;
+      case "monogram": v = r.read(); if (!v) return; break;
+      case "bi": case "bia": {
+        const raw = r.read(); v = {};
+        langs.forEach(l => { if (raw[l]) v[l] = f.type === "bia" ? nlToBr(raw[l]) : raw[l]; });
+        if (!Object.keys(v).length) return; break;
+      }
+      case "families": v = r.read().map(it => { const t = {}; langs.forEach(l => { if (it.title[l]) t[l] = it.title[l]; }); return { title: t, names: it.names }; }); break;
+      case "colors": v = r.read(); break;
+      case "photos": {
+        v = r.read().map((p, i) => { files.gallery.push(p.file); const c = {}; langs.forEach(l => { if (p.caption[l]) c[l] = p.caption[l]; }); const o = { src: `img/photo-${i + 2}.${extOf(p.file && p.file.name, "jpg")}` }; if (Object.keys(c).length) o.caption = c; return o; });
+        break;
+      }
+      case "file": {
+        const file = r.read();
+        if (f.musicFile) { files.music = file; v = file ? `assets/audio/music.${extOf(file.name, "mp3")}` : "assets/audio/music.mp3"; }
+        else { files.hero = file; v = `img/photo-1.${extOf(file && file.name, "jpg")}`; }
+        break;
+      }
+      default: v = r.read();
+    }
+    if ((f.path.startsWith("guestbook.") && f.path !== "guestbook.enabled" && !gbOn)) return;
+    setPath(inv, f.path, v);
+  });
+  inv.settings.music.volume = 0.55; inv.settings.rememberLanguage = true;
+  if (!inv.settings.music.title) delete inv.settings.music.title;
+  return { inv, files };
 }
 
-function showErrors(errors, firstInvalid) {
-  const summary = document.getElementById("error-summary");
-  if (!errors.length) {
-    summary.hidden = true;
-    summary.innerHTML = "";
-    return;
+/* ---------- Ivory Botanical Gold : data.js + fichiers du thème ---------- */
+function buildDataJs(inv) {
+  return `/* ============================================================
+   DATA — généré le ${new Date().toISOString().slice(0, 10)} par generator/index.html.
+   Structure documentée champ par champ dans template/ivory-botanical-gold/data.js
+   (le schéma maître). Modifier ici = modifier l'invitation de ce couple.
+   ============================================================ */
+window.INVITATION = ${JSON.stringify(inv, null, 2)};
+`;
+}
+async function zipIvoryBotanicalGold(inv, files, slug) {
+  // Tout est en mémoire : les fichiers du thème viennent de bundled-templates.js (base64), rien n'est lu sur le disque ni le réseau.
+  const bundle = window.THEME_BUNDLES && window.THEME_BUNDLES["ivory-botanical-gold"];
+  if (!bundle) throw new Error("bundled-templates.js est absent ou vide. Lancez « python3 generator/build-bundle.py » puis rechargez cette page.");
+  const zip = new JSZip(), root = zip.folder(slug);
+  bundle.files.forEach(p => root.file(p, bundle.data[p], { base64: true }));
+  root.file("data.js", buildDataJs(inv));
+  const img = root.folder("img");
+  img.file(inv.hero.photo.replace("img/", ""), files.hero);
+  inv.gallery.photos.forEach((p, i) => img.file(p.src.replace("img/", ""), files.gallery[i]));
+  if (inv.settings.music.enabled) {
+    if (files.music) root.file(inv.settings.music.file, files.music);
+    else root.file(bundle.defaultMusic, bundle.data[bundle.defaultMusic], { base64: true });
   }
-  summary.hidden = false;
-  summary.innerHTML = `<strong>${errors.length} champ(s) à corriger :</strong><ul>${errors.map(e => `<li>${e}</li>`).join("")}</ul>`;
-  summary.scrollIntoView({ behavior: "smooth", block: "start" });
-  if (firstInvalid) firstInvalid.focus();
+  return zip;
 }
 
-/* ---------- Construction du texte config.js ---------- */
-function buildConfigJs(data) {
+/* ---------- Ivory & Gold (historique) : traduction vers config.js ---------- */
+function toLegacyConfig(inv, files) {
+  const dl = inv.settings.defaultLang;
+  const P = v => (v && typeof v === "object" ? (v[dl] ?? v.fr ?? v.en ?? "") : v ?? "");
+  const iso = inv.wedding.date, dp = dateParts(iso, dl);
+  const musicName = files.music.name;
+  return {
+    couple: { prenom1: inv.couple.first[0], prenom2: inv.couple.first[1], nomComplet1: inv.couple.full[0], nomComplet2: inv.couple.full[1] },
+    dateMariage: iso,
+    dateAffichee: { jourSemaine: dp.weekday, jour: dp.day, mois: dp.month, annee: dp.year },
+    familles: inv.families.items.map(it => ({ titre: P(it.title), parents: it.names })),
+    ceremonie: { heure: inv.events.ceremony.time, lieu: P(inv.events.ceremony.name) },
+    reception: { heure: inv.events.reception.time },
+    lieuReception: { nom: P(inv.events.reception.name), adresse: P(inv.events.reception.address), rechercheMaps: inv.events.reception.maps.query },
+    galerie: { photoPrincipale: inv.hero.photo, photos: inv.gallery.photos.map(p => p.src) },
+    dressCode: { consigne: stripHtml(P(inv.dressCode.message)), couleurs: inv.dressCode.colors },
+    musique: { titre: inv.settings.music.title || "", fichier: `audio/${musicName}` },
+    messageCloture: stripHtml(P(inv.closing)),
+  };
+}
+function buildConfigJs(c) {
   const j = v => JSON.stringify(v);
-
-  const famillesText = data.familles
-    .map(f => `    { titre: ${j(f.titre)}, parents: ${j(f.parents)} },`)
-    .join("\n");
-
-  const photosText = data.galerie.photos.map(p => `      ${j(p)},`).join("\n");
-  const couleursText = data.dressCode.couleurs.map(c => j(c)).join(", ");
-
   return `/* ============================================================
    CONFIG — généré le ${new Date().toISOString().slice(0, 10)} par
-   generator/index.html. Voir docs/new-client-checklist.md pour la
-   procédure de mise en place de ce dossier client.
+   generator/index.html (thème Ivory & Gold). Voir docs/new-client-checklist.md.
    ============================================================ */
 const CONFIG = {
   couple: {
-    prenom1: ${j(data.couple.prenom1)},
-    prenom2: ${j(data.couple.prenom2)},
-    nomComplet1: ${j(data.couple.nomComplet1)},
-    nomComplet2: ${j(data.couple.nomComplet2)},
+    prenom1: ${j(c.couple.prenom1)},
+    prenom2: ${j(c.couple.prenom2)},
+    nomComplet1: ${j(c.couple.nomComplet1)},
+    nomComplet2: ${j(c.couple.nomComplet2)},
   },
-  dateMariage: ${j(data.dateMariage)}, // format AAAA-MM-JJ, utilisé pour le calendrier
-  dateAffichee: { jourSemaine: ${j(data.dateAffichee.jourSemaine)}, jour: ${j(data.dateAffichee.jour)}, mois: ${j(data.dateAffichee.mois)}, annee: ${j(data.dateAffichee.annee)} },
+  dateMariage: ${j(c.dateMariage)}, // format AAAA-MM-JJ, utilisé pour le calendrier
+  dateAffichee: { jourSemaine: ${j(c.dateAffichee.jourSemaine)}, jour: ${j(c.dateAffichee.jour)}, mois: ${j(c.dateAffichee.mois)}, annee: ${j(c.dateAffichee.annee)} },
 
   familles: [
-${famillesText}
+${c.familles.map(f => `    { titre: ${j(f.titre)}, parents: ${j(f.parents)} },`).join("\n")}
   ],
 
-  ceremonie: { heure: ${j(data.ceremonie.heure)}, lieu: ${j(data.ceremonie.lieu)} },
-  reception: { heure: ${j(data.reception.heure)} },
+  ceremonie: { heure: ${j(c.ceremonie.heure)}, lieu: ${j(c.ceremonie.lieu)} },
+  reception: { heure: ${j(c.reception.heure)} },
 
   lieuReception: {
-    nom: ${j(data.lieuReception.nom)},
-    adresse: ${j(data.lieuReception.adresse)},
-    rechercheMaps: ${j(data.lieuReception.rechercheMaps)},
+    nom: ${j(c.lieuReception.nom)},
+    adresse: ${j(c.lieuReception.adresse)},
+    rechercheMaps: ${j(c.lieuReception.rechercheMaps)},
   },
 
   galerie: {
     // Chemins relatifs vers img/ dans ce dossier client.
-    photoPrincipale: ${j(data.galerie.photoPrincipale)},
+    photoPrincipale: ${j(c.galerie.photoPrincipale)},
     photos: [
-${photosText}
+${c.galerie.photos.map(p => `      ${j(p)},`).join("\n")}
     ],
   },
 
   dressCode: {
-    consigne: ${j(data.dressCode.consigne)},
-    couleurs: [${couleursText}],
+    consigne: ${j(c.dressCode.consigne)},
+    couleurs: [${c.dressCode.couleurs.map(j).join(", ")}],
   },
 
   musique: {
-    titre: ${j(data.musique.titre)},
-    fichier: ${j(data.musique.fichier)}, // chemin relatif vers audio/ dans ce dossier client
+    titre: ${j(c.musique.titre)},
+    fichier: ${j(c.musique.fichier)}, // chemin relatif vers audio/ dans ce dossier client
   },
 
-  messageCloture: ${j(data.messageCloture)},
+  messageCloture: ${j(c.messageCloture)},
 };
 `;
 }
-
-/* ---------- Génération du .zip ---------- */
-async function generateZip(data, files, slug) {
-  const zip = new JSZip();
-  const root = zip.folder(slug);
-
+function zipLegacy(inv, files, slug) {
+  const zip = new JSZip(), root = zip.folder(slug);
   root.file("index.html", CLIENT_INDEX_HTML);
-  root.file("config.js", buildConfigJs(data));
-
-  const imgFolder = root.folder("img");
-  imgFolder.file(`photo-1.${extOf(files.photoPrincipale.name, "jpg")}`, files.photoPrincipale);
-  files.gallery.forEach((file, i) => {
-    imgFolder.file(`photo-${i + 2}.${extOf(file.name, "jpg")}`, file);
-  });
-
-  root.folder("audio").file(files.musiqueFichier.name, files.musiqueFichier);
-
-  const blob = await zip.generateAsync({ type: "blob" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${slug}.zip`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  root.file("config.js", buildConfigJs(toLegacyConfig(inv, files)));
+  const img = root.folder("img");
+  img.file(inv.hero.photo.replace("img/", ""), files.hero);
+  inv.gallery.photos.forEach((p, i) => img.file(p.src.replace("img/", ""), files.gallery[i]));
+  root.folder("audio").file(files.music.name, files.music);
+  return zip;
 }
 
-/* ---------- Soumission du formulaire ---------- */
-const form = document.getElementById("generator-form");
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  clearInvalidMarks(form);
-
-  const { errors, firstInvalid } = validate(form);
-  showErrors(errors, firstInvalid);
-  if (errors.length) return;
-
-  const photoPrincipale = document.getElementById("photoPrincipale").files[0];
-  const galleryFiles = [];
-  for (let i = 1; i <= 6; i++) {
-    galleryFiles.push(document.getElementById(`photoGalerie${i}`).files[0]);
+/* ---------- soumission ---------- */
+form.addEventListener("submit", async e => {
+  e.preventDefault(); clearMarks();
+  const { errors, first } = validate(); showErrors(errors, first); if (errors.length) return;
+  const status = $("#status"); status.hidden = false; status.className = "status"; status.textContent = "Génération en cours…";
+  try {
+    const { inv, files } = buildInvitation();
+    const slug = slugify(inv.couple.first[0] + "-" + inv.couple.first[1]);
+    const zip = isLegacy() ? zipLegacy(inv, files, slug) : await zipIvoryBotanicalGold(inv, files, slug);
+    const blob = await zip.generateAsync({ type: "blob" });
+    window.GENERATOR_LAST = { slug, theme, blob, inv };            // (aussi utile pour les tests)
+    const a = h("a", { href: URL.createObjectURL(blob), download: `${slug}.zip` }); document.body.append(a); a.click(); a.remove();
+    status.className = "status ok";
+    status.innerHTML = `✔ <b>${slug}.zip</b> généré (${(blob.size / 1048576).toFixed(1)} Mo). Extraire le .zip puis glisser le dossier <code>${slug}</code> dans <code>clients/</code> — rien à renommer.`;
+  } catch (err) {
+    console.error(err); status.className = "status err"; status.textContent = "Échec : " + err.message;
   }
-  const musiqueFichier = document.getElementById("musiqueFichier").files[0];
-
-  const familleBlocks = Array.from(famillesList.querySelectorAll(".famille-block"));
-  const familles = familleBlocks.map(b => ({
-    titre: b.querySelector(".famille-titre").value.trim(),
-    parents: b.querySelector(".famille-parents").value.trim(),
-  }));
-
-  const dateMariage = dateInput.value;
-  const dateAffichee = computeDateAffichee(dateMariage);
-
-  const photoPrincipaleExt = extOf(photoPrincipale.name, "jpg");
-  const galleryExts = galleryFiles.map(f => extOf(f.name, "jpg"));
-
-  const data = {
-    couple: {
-      prenom1: document.getElementById("prenom1").value.trim(),
-      prenom2: document.getElementById("prenom2").value.trim(),
-      nomComplet1: document.getElementById("nomComplet1").value.trim(),
-      nomComplet2: document.getElementById("nomComplet2").value.trim(),
-    },
-    dateMariage,
-    dateAffichee,
-    familles,
-    ceremonie: {
-      heure: document.getElementById("ceremonieHeure").value,
-      lieu: document.getElementById("ceremonieLieu").value.trim(),
-    },
-    reception: {
-      heure: document.getElementById("receptionHeure").value,
-    },
-    lieuReception: {
-      nom: document.getElementById("lieuNom").value.trim(),
-      adresse: document.getElementById("lieuAdresse").value.trim(),
-      rechercheMaps: document.getElementById("lieuRechercheMaps").value.trim(),
-    },
-    galerie: {
-      photoPrincipale: `img/photo-1.${photoPrincipaleExt}`,
-      photos: galleryExts.map((ext, i) => `img/photo-${i + 2}.${ext}`),
-    },
-    dressCode: {
-      consigne: document.getElementById("dressConsigne").value.trim(),
-      couleurs: Array.from(dressColorsContainer.querySelectorAll(".dress-color")).map(el => el.value),
-    },
-    musique: {
-      titre: document.getElementById("musiqueTitre").value.trim(),
-      fichier: `audio/${musiqueFichier.name}`,
-    },
-    messageCloture: document.getElementById("messageCloture").value.trim(),
-  };
-
-  const slug = slugify(data.couple.prenom1 + "-" + data.couple.prenom2);
-  await generateZip(data, { photoPrincipale, gallery: galleryFiles, musiqueFichier }, slug);
 });

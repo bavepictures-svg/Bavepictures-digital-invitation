@@ -13,13 +13,11 @@
     <p class="eyebrow">Outil interne — Bave Digital Invitations</p>
     <h1>Générateur d'invitation</h1>
     <p class="intro">
-      Remplissez les informations du couple ci-dessous, puis cliquez sur
-      « Générer le .zip ». Le fichier produit contient déjà un dossier
-      nommé d'après le couple (<code>index.html</code>,
-      <code>config.js</code>, <code>img/</code>, <code>audio/</code>) :
-      il suffit d'extraire le .zip et de glisser ce dossier dans
-      <code>clients/</code>, sans rien renommer. Rien n'est envoyé
-      nulle part : tout se passe dans votre navigateur.
+      Un seul formulaire pour tous les thèmes : choisissez le thème, remplissez les informations
+      du couple (en français et en anglais), puis cliquez sur « Générer le .zip ». Le fichier produit
+      contient déjà un dossier nommé d'après le couple : il suffit d'extraire le .zip et de glisser ce
+      dossier dans <code>clients/</code>, sans rien renommer. Rien n'est envoyé nulle part : tout se
+      passe dans votre navigateur.
     </p>
   </header>
 
@@ -27,117 +25,30 @@
 
   <form id="generator-form" novalidate>
 
-    <fieldset>
-      <legend>Couple</legend>
-      <div class="grid-2">
-        <label>Prénom 1 <span class="req">*</span>
-          <input type="text" id="prenom1" required>
-        </label>
-        <label>Prénom 2 <span class="req">*</span>
-          <input type="text" id="prenom2" required>
-        </label>
-        <label>Nom complet 1 <span class="req">*</span>
-          <input type="text" id="nomComplet1" required>
-        </label>
-        <label>Nom complet 2 <span class="req">*</span>
-          <input type="text" id="nomComplet2" required>
-        </label>
-      </div>
+    <fieldset class="theme-fieldset">
+      <legend>Thème</legend>
+      <div id="theme-cards" class="theme-cards"></div>
+      <p id="legacy-note" class="note warn" hidden>
+        <b>Ivory &amp; Gold est un thème plus ancien</b> : il ne gère pas encore tous les champs (textes anglais,
+        légendes de la galerie, enveloppe animée, livre d'or, etc.). Seules les valeurs de la langue par défaut
+        sont utilisées pour les champs qu'il comprend ; les champs <span class="chip">non utilisés</span> sont
+        grisés et ignorés. Il sera migré vers le nouveau schéma plus tard.
+      </p>
     </fieldset>
 
-    <fieldset>
-      <legend>Date du mariage</legend>
-      <label>Date <span class="req">*</span>
-        <input type="date" id="dateMariage" required>
-      </label>
-      <p class="preview" id="date-preview"></p>
-    </fieldset>
-
-    <fieldset>
-      <legend>Familles</legend>
-      <div id="familles-list"></div>
-      <button type="button" id="add-famille" class="btn-secondary">+ Ajouter une famille</button>
-    </fieldset>
-
-    <fieldset>
-      <legend>Cérémonie</legend>
-      <div class="grid-2">
-        <label>Heure <span class="req">*</span>
-          <input type="time" id="ceremonieHeure" required>
-        </label>
-        <label>Lieu <span class="req">*</span>
-          <input type="text" id="ceremonieLieu" required>
-        </label>
-      </div>
-    </fieldset>
-
-    <fieldset>
-      <legend>Réception</legend>
-      <label>Heure <span class="req">*</span>
-        <input type="time" id="receptionHeure" required>
-      </label>
-    </fieldset>
-
-    <fieldset>
-      <legend>Lieu de la réception</legend>
-      <div class="grid-2">
-        <label>Nom <span class="req">*</span>
-          <input type="text" id="lieuNom" required>
-        </label>
-        <label>Adresse <span class="req">*</span>
-          <input type="text" id="lieuAdresse" required>
-        </label>
-      </div>
-      <label>Recherche Maps <span class="req">*</span>
-        <input type="text" id="lieuRechercheMaps" required>
-        <span class="hint">Texte utilisé pour le lien « Ouvrir dans Maps » (ex. nom + ville).</span>
-      </label>
-    </fieldset>
-
-    <fieldset>
-      <legend>Galerie photo</legend>
-      <label>Photo principale <span class="req">*</span>
-        <input type="file" id="photoPrincipale" accept="image/*" required>
-        <img class="thumb" id="preview-photoPrincipale" hidden>
-      </label>
-      <div class="grid-3" id="gallery-photos"></div>
-    </fieldset>
-
-    <fieldset>
-      <legend>Dress code</legend>
-      <label>Consigne <span class="req">*</span>
-        <input type="text" id="dressConsigne" required>
-      </label>
-      <div class="swatch-row" id="dress-colors"></div>
-      <button type="button" id="add-color" class="btn-secondary">+ Ajouter une couleur</button>
-    </fieldset>
-
-    <fieldset>
-      <legend>Musique</legend>
-      <div class="grid-2">
-        <label>Titre du morceau <span class="req">*</span>
-          <input type="text" id="musiqueTitre" required>
-        </label>
-        <label>Fichier audio <span class="req">*</span>
-          <input type="file" id="musiqueFichier" accept="audio/*" required>
-        </label>
-      </div>
-    </fieldset>
-
-    <fieldset>
-      <legend>Message de clôture</legend>
-      <label>Message <span class="req">*</span>
-        <textarea id="messageCloture" rows="2" required></textarea>
-      </label>
-    </fieldset>
+    <div id="form-sections"></div>
 
     <div class="actions">
       <button type="submit" class="btn-primary">Générer le .zip</button>
     </div>
+    <p id="status" class="status" hidden></p>
   </form>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="legacy-client-index.js"></script>
+<script src="bundled-templates.js"></script>
+<script src="schema.js"></script>
 <script src="generator.js"></script>
 </body>
 </html>
