@@ -1,0 +1,28 @@
+{
+  "theme": "ivory-botanical-gold",
+  "note": "Files embedded by generator/build-bundle.py into generator/bundled-templates.js and copied into each client folder. data.js, img/ (placeholder photos) and assets/audio/music.mp3 (default track) are produced/replaced per client. After changing any listed file or this list, run: python3 generator/build-bundle.py",
+  "files": [
+    "assets/bg-bl.jpg",
+    "assets/bg-br.jpg",
+    "assets/bg-ml.jpg",
+    "assets/bg-mr.jpg",
+    "assets/bg-tl.jpg",
+    "assets/bg-tr.jpg",
+    "assets/icon-church.png",
+    "assets/icon-toast.png",
+    "assets/leaves-falling.png",
+    "assets/rose-bouquet.png",
+    "assets/rose-corner.png",
+    "assets/wax-seal.png",
+    "autoscroll.js",
+    "envelope.css",
+    "envelope.js",
+    "i18n.js",
+    "index.html",
+    "music.js",
+    "render.js",
+    "script.js",
+    "style.css"
+  ],
+  "defaultMusic": "assets/audio/music.mp3"
+}
