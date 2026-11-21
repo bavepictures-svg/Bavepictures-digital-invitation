@@ -203,24 +203,14 @@ const BUILDERS = {
     return { el: wrap(f, h("div", { class: "lbl" }, labelEl(f)), box, addBtn, h("span", { class: "hint" }, `${MIN_COLORS} à ${MAX_COLORS} couleurs.`)), read: () => [...box.querySelectorAll(".dress-color")].map(c => c.value) };
   },
   families(f) {
-    const box = h("div", { class: "families-list" });
-    const add = (t) => {
-      const fr = h("input", { type: "text", value: (t && t.fr) || "Mr / Mme", "data-lang": "fr", "data-path": "families.items.title" });
-      const en = h("input", { type: "text", value: (t && t.en) || "Mr. & Mrs.", "data-lang": "en", "data-path": "families.items.title" });
-      const names = h("input", { type: "text", "data-path": "families.items.names", placeholder: "Prénom NOM & Prénom NOM" });
-      const rm = h("button", { type: "button", class: "btn-remove" }, "Retirer");
-      const item = h("div", { class: "famille-block" },
-        h("div", { class: "bi-row" }, h("label", { class: "col-fr" }, h("span", { class: "lang-tag" }, "FR"), fr), h("label", { class: "col-en" }, h("span", { class: "lang-tag" }, "EN"), en)),
-        h("label", {}, h("span", { class: "lbl", html: 'Parents <span class="req">*</span>' }), names), rm);
-      item._r = { fr, en, names };
-      rm.addEventListener("click", () => { item.remove(); refresh(); });
-      box.append(item); refresh();
-    };
-    const addBtn = h("button", { type: "button", class: "btn-secondary" }, "+ Ajouter une famille");
-    function refresh() { const n = box.children.length; box.querySelectorAll(".btn-remove").forEach(b => (b.disabled = n <= 1)); addBtn.disabled = n >= MAX_FAMILIES; }
-    addBtn.addEventListener("click", () => add());
-    add(); add();
-    return { el: wrap(f, h("div", { class: "lbl" }, labelEl(f)), box, addBtn), read: () => [...box.children].map(c => ({ title: { fr: c._r.fr.value.trim(), en: c._r.en.value.trim() }, names: c._r.names.value.trim() })) };
+    // Deux cases seulement : les parents de la personne 1, puis ceux de la personne 2 (noms tapés une seule fois).
+    const mk = n => h("input", { type: "text", "data-path": "families.items." + n + ".names", placeholder: "Prénom NOM / Prénom NOM" });
+    const a = mk(0), b = mk(1);
+    const la = h("span", { class: "lbl" }), lb = h("span", { class: "lbl" });
+    const firsts = () => ["couple.first.0", "couple.first.1"].map(p => { const r = REG.find(x => x.f.path === p); return r ? r.read() : ""; });
+    f.refreshLabels = () => { const [x, y] = firsts(); la.innerHTML = `Parents de <b>${esc(x || "la personne 1")}</b> <span class="req">*</span>`; lb.innerHTML = `Parents de <b>${esc(y || "la personne 2")}</b>`; };
+    f.refreshLabels();
+    return { el: wrap(f, h("label", {}, la, a), h("label", {}, lb, b)), read: () => [a.value.trim(), b.value.trim()].filter(Boolean), inputs: [a, b] };
   },
   photos(f) {
     const box = h("div", { class: "photo-rows" });
@@ -266,6 +256,7 @@ SECTIONS.forEach(sec => {
   else mount.append(fs);
 });
 const byPath = p => REG.find(x => x.f.path === p);
+REG.filter(r => r.f.type === "families").forEach(r => ['couple.first.0', 'couple.first.1'].forEach(p => byPath(p).el.addEventListener('input', r.f.refreshLabels)));
 
 /* date → aperçu du libellé (FR / EN) */
 const dateReg = byPath("wedding.date"), dateLblReg = byPath("wedding.dateLabel");
@@ -315,8 +306,7 @@ function validate() {
     else if (f.type === "bi" || f.type === "bia") req.forEach((l, i) => { if (!r.read()[l]) bad(r.inputs[l === "fr" ? 0 : 1], `Champ manquant : ${label} (${l.toUpperCase()})`); });
     else if (f.path === "hero.photo") { if (!r.read()) bad(r.el, "Photo principale manquante."); }
     else if (f.type === "families") {
-      const items = r.read(); if (!items.length) bad(r.el, "Ajoutez au moins une famille.");
-      items.forEach((it, i) => { if (!it.names) bad(r.el, `Famille ${i + 1} : parents manquants.`); req.forEach(l => { if (!it.title[l]) bad(r.el, `Famille ${i + 1} : titre ${l.toUpperCase()} manquant.`); }); });
+      if (!r.read().length) bad(r.inputs[0], "Parents : renseignez au moins une ligne de noms.");
     }
     else if (f.type === "colors") { if (r.read().length < MIN_COLORS) bad(r.el, `Dress code : au moins ${MIN_COLORS} couleurs.`); }
     else if (f.type === "photos") {
@@ -356,7 +346,7 @@ function buildInvitation() {
         langs.forEach(l => { if (raw[l]) v[l] = f.type === "bia" ? nlToBr(raw[l]) : raw[l]; });
         if (!Object.keys(v).length) return; break;
       }
-      case "families": v = r.read().map(it => { const t = {}; langs.forEach(l => { if (it.title[l]) t[l] = it.title[l]; }); return { title: t, names: it.names }; }); break;
+      case "families": v = r.read().map(names => ({ names })); break;
       case "colors": v = r.read(); break;
       case "photos": {
         v = r.read().map((p, i) => { files.gallery.push(p.file); const c = {}; langs.forEach(l => { if (p.caption[l]) c[l] = p.caption[l]; }); const o = { src: `img/photo-${i + 2}.${extOf(p.file && p.file.name, "jpg")}` }; if (Object.keys(c).length) o.caption = c; return o; });
@@ -420,7 +410,7 @@ function toLegacyConfig(inv, files) {
     couple: { prenom1: inv.couple.first[0], prenom2: inv.couple.first[1], nomComplet1: inv.couple.full[0], nomComplet2: inv.couple.full[1] },
     dateMariage: iso,
     dateAffichee: { jourSemaine: dp.weekday, jour: dp.day, mois: dp.month, annee: dp.year },
-    familles: inv.families.items.map(it => ({ titre: P(it.title), parents: it.names })),
+    familles: inv.families.items.map(it => ({ titre: P(it.title || inv.families.title), parents: it.names })),
     ceremonie: { heure: inv.events.ceremony.time, lieu: P(inv.events.ceremony.name) },
     reception: { heure: inv.events.reception.time },
     lieuReception: { nom: P(inv.events.reception.name), adresse: P(inv.events.reception.address), rechercheMaps: inv.events.reception.maps.query },

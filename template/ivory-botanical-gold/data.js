@@ -61,10 +61,11 @@ window.INVITATION = {
 
   /* ───────────── 5. FAMILIES + ANNOUNCEMENT ───────────── */
   families: {
-    items: [                             // REQUIRED  1–2 lines (add more if needed)
-      { title: { fr: "Mr / Mme", en: "Mr. & Mrs." }, names: "Juvenal NIYONKURU & BUKURU Aline" },     // title: BILINGUAL · names: TEXT
-      { title: { fr: "Mr / Mme", en: "Mr. & Mrs." }, names: "Olivier NGENDAHAYO & Anne Marie SUGIRA" },
-    ],
+    title: { fr: "Mr / Mme", en: "Mr. & Mrs." },   // OPTIONAL  BILINGUAL  small title written in front of each line of parents' names
+    items: [                             // REQUIRED  1–2 lines: the parents of person 1, then the parents of person 2 (an "&" is shown between them)
+      { names: "Juvenal NIYONKURU / BUKURU Aline" },     // names: TEXT  (typed once — same in every language)
+      { names: "Olivier NGENDAHAYO / Anne Marie SUGIRA" },
+    ],                                   // (older files may use { title: BILINGUAL, names: TEXT } per item — still supported)
     announcement: {                      // REQUIRED  HTML  sentence above the couple's names
       fr: "NOUS AVONS LA JOIE DE VOUS ANNONCER<br>LE MARIAGE DE NOS ENFANTS",
       en: "WE ARE DELIGHTED TO ANNOUNCE<br>THE WEDDING OF OUR CHILDREN",

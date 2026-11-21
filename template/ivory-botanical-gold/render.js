@@ -12,13 +12,21 @@
   $("#env-mono").innerHTML = ""; const m = $("#env-mono");
   m.append(mono[0].toUpperCase(), Object.assign(el("i"), { textContent: "&" }), mono[1].toUpperCase());
 
-  // families
-  const list = $("#family-list");
-  D.families.items.forEach((_, i) => {
-    const p = el("p");
-    p.append(Object.assign(el("span"), { }), el("br"), el("span"));
-    p.children[0].dataset.i18n = `families.items.${i}.title`;
-    p.children[2].dataset.i18n = `families.items.${i}.names`;
+  // families: one line per side — "<title> <parents' names>" — with an "&" between them.
+  //   new shape:  families.title + families.items[i].names            (one text field per side)
+  //   old shape:  families.items[i].title + families.items[i].names   (still supported: title on its own line)
+  const list = $("#family-list"), fam = D.families;
+  fam.items.forEach((it, i) => {
+    if (i > 0) list.append(Object.assign(el("p", "fam-amp"), { textContent: "&" }));
+    const p = el("p", "fam-line"), names = el("span", "fam-names");
+    names.dataset.i18n = `families.items.${i}.names`;
+    if (it.title) {                                                   // old shape
+      const t = el("span", "fam-title"); t.dataset.i18n = `families.items.${i}.title`;
+      p.append(t, el("br"), names); p.classList.add("fam-stacked");
+    } else if (fam.title) {                                           // new shape
+      const t = el("span", "fam-title"); t.dataset.i18n = "families.title";
+      p.append(t, " ", names);
+    } else p.append(names);
     list.append(p);
   });
 

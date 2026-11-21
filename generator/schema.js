@@ -15,7 +15,7 @@ const THEMES = [
   { id: "ivory-gold", name: "Ivory & Gold", desc: "Thème historique (moteur template/css + template/js).", legacy: true },
 ];
 
-const MIN_GALLERY = 6, MAX_GALLERY = 12, MIN_COLORS = 3, MAX_COLORS = 6, MAX_FAMILIES = 4;
+const MIN_GALLERY = 6, MAX_GALLERY = 12, MIN_COLORS = 3, MAX_COLORS = 6;
 
 const SECTIONS = [
   { id: "settings", title: "Paramètres", fields: [
@@ -45,7 +45,8 @@ const SECTIONS = [
   ]},
 
   { id: "families", title: "Familles & annonce", fields: [
-    { type: "families", path: "families.items", label: "Familles", req: true, old: true },
+    { type: "families", path: "families.items", label: "Parents", req: true, old: true,
+      hint: "Écrire les noms une seule fois. Le titre (Mr / Mme) est ajouté devant automatiquement, et un « & » est affiché entre les deux lignes." },
     { type: "bia", path: "families.announcement", label: "Phrase d'annonce", req: true, old: false,
       default: { fr: "NOUS AVONS LA JOIE DE VOUS ANNONCER\nLE MARIAGE DE NOS ENFANTS", en: "WE ARE DELIGHTED TO ANNOUNCE\nTHE WEDDING OF OUR CHILDREN" } },
   ]},
@@ -126,6 +127,7 @@ const SECTIONS = [
     { type: "bi", path: "ui.languageAria", label: "Bouton de langue — libellé", old: false, default: { fr: "Changer de langue", en: "Change language" } },
     { type: "bi", path: "ui.musicPlay", label: "Bouton musique — lancer", old: false, default: { fr: "Lancer la musique", en: "Play music" } },
     { type: "bi", path: "ui.musicPause", label: "Bouton musique — pause", old: false, default: { fr: "Mettre la musique en pause", en: "Pause music" } },
+    { type: "bi", path: "families.title", label: "Titre devant les noms des parents", req: true, old: true, enOld: false, default: { fr: "Mr / Mme", en: "Mr. & Mrs." } },
     { type: "bi", path: "seo.title", label: "Titre de l'onglet du navigateur ({names} = prénoms)", req: true, old: false, default: { fr: "{names} — Invitation de mariage", en: "{names} — Wedding invitation" } },
     { type: "bi", path: "hero.photoAlt", label: "Texte alternatif de la photo principale", old: false, default: { fr: "{names}", en: "{names}" } },
   ]},
