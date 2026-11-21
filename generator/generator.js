@@ -48,6 +48,78 @@ function h(tag, attrs, ...kids) {
   return e;
 }
 
+/* ---------- aperçu des liens (WhatsApp, iMessage, Telegram, Facebook…) ----------
+   Les robots de ces applications ne lisent que le HTML brut : les balises Open Graph doivent donc être
+   écrites en dur dans index.html (le JavaScript du thème ne s'exécute pas pour eux). Le générateur les
+   écrit à partir des données du couple et fabrique l'image d'aperçu (1200×630, < 280 Ko). */
+const PUBLIC_BASE_URL = "https://bavepictures-svg.github.io/Bavepictures-digital-invitation/";   // = baseUrl de admin/clients.js
+const OG_W = 1200, OG_H = 630, OG_MAX_BYTES = 280 * 1024;
+const PREVIEW_COPY = {
+  en: { invite: "Invite you to their wedding", locale: "en_US", title: "Wedding invitation" },
+  fr: { invite: "Vous invitent à leur mariage", locale: "fr_FR", title: "Invitation de mariage" },
+};
+// Aperçu en anglais (choix de Bave Pictures) ; en français seulement si l'anglais n'est pas proposé.
+const previewLang = inv => (inv.settings.languages.includes("en") ? "en" : inv.settings.defaultLang);
+function previewDateText(iso, lang) {
+  const p = dateParts(iso, lang), d = String(Number(p.day));
+  return lang === "fr" ? `${p.weekday.toLowerCase()} ${d} ${p.month.toLowerCase()} ${p.year}` : `${p.weekday}, ${d} ${p.month} ${p.year}`;
+}
+const attr = s => esc(s).replace(/"/g, "&quot;");
+function socialPreview(inv, slug) {
+  const lang = previewLang(inv), c = PREVIEW_COPY[lang];
+  const names = inv.couple.first[0] + " & " + inv.couple.first[1];
+  const url = `${PUBLIC_BASE_URL}clients/${slug}/`, image = url + "img/og-image.jpg";
+  const desc = `${c.invite} | ${previewDateText(inv.wedding.date, lang)}`;
+  const tags = `<!-- Aperçu du lien (WhatsApp, iMessage, Telegram, Facebook…) — généré par generator/index.html -->
+<meta name="description" content="${attr(desc)}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="${attr(names)}">
+<meta property="og:description" content="${attr(desc)}">
+<meta property="og:url" content="${attr(url)}">
+<meta property="og:image" content="${attr(image)}">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="${OG_W}">
+<meta property="og:image:height" content="${OG_H}">
+<meta property="og:image:alt" content="${attr(names)}">
+<meta property="og:locale" content="${c.locale}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${attr(names)}">
+<meta name="twitter:description" content="${attr(desc)}">
+<meta name="twitter:image" content="${attr(image)}">
+`;
+  return { tags, title: `${names} — ${c.title}` };
+}
+function injectSocialPreview(html, preview) {
+  html = html.replace(/(<title[^>]*>)[^<]*(<\/title>)/i, (_, a, b) => a + esc(preview.title) + b);
+  return html.replace("</head>", preview.tags + "</head>");
+}
+// 1200×630 JPEG : photo en « cover » si elle est paysage ; photo portrait = flou + photo entière au centre (aucun visage coupé)
+async function makePreviewImage(file) {
+  const bmp = await createImageBitmap(file);
+  const draw = (w, h) => {
+    const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+    const x = cv.getContext("2d"), s = w / OG_W;
+    const ratio = bmp.width / bmp.height;
+    if (ratio >= 1.35) {                                                    // paysage : cover, cadrage légèrement au-dessus du centre
+      const sc = Math.max(w / bmp.width, h / bmp.height), dw = bmp.width * sc, dh = bmp.height * sc;
+      x.drawImage(bmp, (w - dw) / 2, -(dh - h) * 0.4, dw, dh);
+    } else {                                                                // portrait / carré : fond flou + photo entière
+      const sc = Math.max(w / bmp.width, h / bmp.height);
+      x.filter = `blur(${28 * s}px)`; x.drawImage(bmp, (w - bmp.width * sc) / 2, (h - bmp.height * sc) / 2, bmp.width * sc, bmp.height * sc); x.filter = "none";
+      x.fillStyle = "rgba(255,255,255,.18)"; x.fillRect(0, 0, w, h);
+      const sf = h / bmp.height, dw = bmp.width * sf;
+      x.shadowColor = "rgba(0,0,0,.28)"; x.shadowBlur = 24 * s; x.drawImage(bmp, (w - dw) / 2, 0, dw, h);
+    }
+    return cv;
+  };
+  const toBlob = (cv, q) => new Promise(r => cv.toBlob(r, "image/jpeg", q));
+  for (const [w, h] of [[OG_W, OG_H], [1000, 525]]) {
+    const cv = draw(w, h);
+    for (let q = 0.86; q >= 0.5; q -= 0.06) { const b = await toBlob(cv, q); if (b.size <= OG_MAX_BYTES) return b; }
+  }
+  return toBlob(draw(800, 420), 0.6);
+}
+
 /* ---------- état : thème & langues ---------- */
 const form = $("#generator-form");
 const REG = [];                                  // { f, el, read() }
@@ -321,10 +393,15 @@ async function zipIvoryBotanicalGold(inv, files, slug) {
   const bundle = window.THEME_BUNDLES && window.THEME_BUNDLES["ivory-botanical-gold"];
   if (!bundle) throw new Error("bundled-templates.js est absent ou vide. Lancez « python3 generator/build-bundle.py » puis rechargez cette page.");
   const zip = new JSZip(), root = zip.folder(slug);
-  bundle.files.forEach(p => root.file(p, bundle.data[p], { base64: true }));
+  const preview = socialPreview(inv, slug);
+  bundle.files.forEach(p => {
+    if (p === "index.html") root.file(p, injectSocialPreview(new TextDecoder().decode(Uint8Array.from(atob(bundle.data[p]), c => c.charCodeAt(0))), preview));
+    else root.file(p, bundle.data[p], { base64: true });
+  });
   root.file("data.js", buildDataJs(inv));
   const img = root.folder("img");
   img.file(inv.hero.photo.replace("img/", ""), files.hero);
+  img.file("og-image.jpg", await makePreviewImage(files.hero));
   inv.gallery.photos.forEach((p, i) => img.file(p.src.replace("img/", ""), files.gallery[i]));
   if (inv.settings.music.enabled) {
     if (files.music) root.file(inv.settings.music.file, files.music);
@@ -404,12 +481,13 @@ ${c.galerie.photos.map(p => `      ${j(p)},`).join("\n")}
 };
 `;
 }
-function zipLegacy(inv, files, slug) {
+async function zipLegacy(inv, files, slug) {
   const zip = new JSZip(), root = zip.folder(slug);
-  root.file("index.html", CLIENT_INDEX_HTML);
+  root.file("index.html", injectSocialPreview(CLIENT_INDEX_HTML, socialPreview(inv, slug)));
   root.file("config.js", buildConfigJs(toLegacyConfig(inv, files)));
   const img = root.folder("img");
   img.file(inv.hero.photo.replace("img/", ""), files.hero);
+  img.file("og-image.jpg", await makePreviewImage(files.hero));
   inv.gallery.photos.forEach((p, i) => img.file(p.src.replace("img/", ""), files.gallery[i]));
   root.folder("audio").file(files.music.name, files.music);
   return zip;
@@ -423,7 +501,7 @@ form.addEventListener("submit", async e => {
   try {
     const { inv, files } = buildInvitation();
     const slug = slugify(inv.couple.first[0] + "-" + inv.couple.first[1]);
-    const zip = isLegacy() ? zipLegacy(inv, files, slug) : await zipIvoryBotanicalGold(inv, files, slug);
+    const zip = isLegacy() ? await zipLegacy(inv, files, slug) : await zipIvoryBotanicalGold(inv, files, slug);
     const blob = await zip.generateAsync({ type: "blob" });
     window.GENERATOR_LAST = { slug, theme, blob, inv };            // (aussi utile pour les tests)
     const a = h("a", { href: URL.createObjectURL(blob), download: `${slug}.zip` }); document.body.append(a); a.click(); a.remove();

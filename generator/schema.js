@@ -41,7 +41,7 @@ const SECTIONS = [
 
   { id: "hero", title: "Page d'accueil", fields: [
     { type: "bi", path: "hero.kicker", label: "Texte au-dessus des noms", req: true, old: false, default: { fr: "MARIAGE DE", en: "WEDDING OF" } },
-    { type: "file", path: "hero.photo", label: "Photo principale du couple", req: true, accept: "image/*", old: true, hint: "Format portrait de préférence. Recadrer/compresser avant (≈1100 px de long côté, JPEG ~78 %)." },
+    { type: "file", path: "hero.photo", label: "Photo principale du couple", req: true, accept: "image/*", old: true, hint: "Format portrait de préférence. Recadrer/compresser avant (≈1100 px de long côté, JPEG ~78 %). Sert aussi d'image d'aperçu quand le lien est partagé (WhatsApp, iMessage…) : générée automatiquement, avec le texte « Prénoms — invitent à leur mariage | date » en anglais." },
   ]},
 
   { id: "families", title: "Familles & annonce", fields: [
