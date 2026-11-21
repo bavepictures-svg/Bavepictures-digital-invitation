@@ -35,5 +35,12 @@ window.CLIENTS = {
       languages: ["fr", "en"],
       created: "2026-11-19",
     },
+    {
+      slug: "steph-jolene",
+      name: "Steph & Jolene",
+      theme: "ivory-botanical-gold",
+      languages: ["fr", "en"],
+      created: "2026-11-21",
+    },
   ],
 };
