@@ -19,7 +19,7 @@
    baseUrl + "clients/" + slug + "/".
    ============================================================ */
 window.CLIENTS = {
-  baseUrl: "https://anzoiid.github.io/bave-digital-invitations/",
+  baseUrl: "https://bavepictures-svg.github.io/Bavepictures-digital-invitation/",
   clients: [
     {
       slug: "yves-clarisse",
@@ -27,6 +27,13 @@ window.CLIENTS = {
       theme: "ivory-gold",
       languages: ["fr"],
       created: "2026-11-18",
+    },
+    {
+      slug: "anzoiid-luna",
+      name: "Anzoiid & Luna",
+      theme: "ivory-botanical-gold",
+      languages: ["fr", "en"],
+      created: "2026-11-19",
     },
   ],
 };
